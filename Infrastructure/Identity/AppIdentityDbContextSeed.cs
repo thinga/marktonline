@@ -20,7 +20,7 @@ namespace Infrastructure.Identity
 
             foreach (var user in users)
             {
-                user.DisplayName = user.DisplayName.ToLower();
+                user.UserName = user.UserName.ToLower();
                 await userManager.CreateAsync(user, "Pa$$w0rd");
             }
 
