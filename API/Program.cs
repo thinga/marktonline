@@ -1,6 +1,7 @@
 using API.Extensions;
 using API.Helpers;
 using Core.Entities;
+using Core.Entities.Identity;
 using Infrastructure.Data;
 using Infrastructure.Identity;
 using StackExchange.Redis;

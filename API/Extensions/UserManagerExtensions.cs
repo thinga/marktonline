@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using Core.Entities;
+using Core.Entities.Identity;
 
 namespace API.Extensions
 {
