@@ -12,20 +12,26 @@ namespace Infrastructure.Identity
     {
         public static async Task SeedUserAsync(UserManager<AppUser> userManager)
         {
-            if ( await userManager.Users.AnyAsync()) return;
-
-            var userData = await System.IO.File.ReadAllTextAsync("../Infrastructure/Data/SeedData/UserSeedData.json");
-            var users= JsonSerializer.Deserialize<List<AppUser>>(userData);
-            if (users == null) return;
-
-            foreach (var user in users)
+            if (!userManager.Users.Any())
             {
-                user.UserName = user.UserName.ToLower();
+                var user = new AppUser
+                {
+                    DisplayName = "Bob",
+                    Email = "bob@test.com",
+                    UserName = "bob@test.com",
+                    Address = new Address
+                    {
+                        FirstName = "Bob",
+                        LastName = "Bobbity",
+                        Street = "10 The street",
+                        City = "New York",
+                        State = "NY",
+                        ZipCode = "90210"
+                    }
+                };
+
                 await userManager.CreateAsync(user, "Pa$$w0rd");
             }
-
         }
-             
     }
-        
-    }
+}

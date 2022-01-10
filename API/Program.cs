@@ -1,56 +1,90 @@
-
-using System;
-using System.Threading.Tasks;
+using API.Extensions;
+using API.Helpers;
 using Core.Entities;
 using Infrastructure.Data;
 using Infrastructure.Identity;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+using StackExchange.Redis;
 
-namespace API
+var builder = WebApplication.CreateBuilder(args);
+// add services to the container
+builder.Services.AddAutoMapper(typeof(MappingProfiles));
+builder.Services.AddDbContext<StoreContext>(x =>
+                x.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddDbContext<AppIdentityDbContext>(x =>
+       {
+           x.UseSqlite(builder.Configuration.GetConnectionString("IdentityConnection"));
+
+       });
+
+
+builder.Services.AddSingleton<IConnectionMultiplexer>(c =>
 {
-    public class Program
-    {
-        public static async Task Main(string[] args)
+    var configuration = ConfigurationOptions.Parse(builder.Configuration
+        .GetConnectionString("Redis"), true);
+    return ConnectionMultiplexer.Connect(configuration);
+});
+
+builder.Services.AddControllers();
+
+builder.Services.AddApplicationServices();
+builder.Services.AddIdentityServices(builder.Configuration);
+builder.Services.AddSwaggerDocumentation();
+builder.Services.AddCors(opt =>
         {
-            var host = CreateHostBuilder(args).Build();
-            using (var scope = host.Services.CreateScope())
+            opt.AddPolicy("CorsPolicy", policy =>
             {
-                var services = scope.ServiceProvider;
-                var loggerFactory = services.GetRequiredService<ILoggerFactory>();
-                try 
-                {
-                    var context = services.GetRequiredService<StoreContext>();
-                    await context.Database.MigrateAsync();
-                    await StoreContextSeed.SeedAsync(context, loggerFactory);
+                policy.AllowAnyHeader().AllowAnyMethod().WithOrigins("https://localhost:4200");
+            });
+        });
 
-                    var userManager = services.GetRequiredService<UserManager<AppUser>>();
-                    var identityContext = services.GetRequiredService<AppIdentityDbContext>();
-                    await identityContext.Database.MigrateAsync();
-                    await AppIdentityDbContextSeed.SeedUserAsync(userManager);
+// Configure the HTTP request pipeline
+var app = builder.Build();
+app.UseMiddleware<ExceptionMiddleware>();
 
-                    
-                }
-                catch (Exception ex)
-                {
-                    var logger = loggerFactory.CreateLogger<Program>();
-                    logger.LogError(ex, "An error occured during migration");
+app.UseStatusCodePagesWithReExecute("/errors/{0}");
 
-                }
-            }
+app.UseHttpsRedirection();
 
-            host.Run();
-        }
+app.UseRouting();
 
-        public static IHostBuilder CreateHostBuilder(string[] args) =>
-            Host.CreateDefaultBuilder(args)
-                .ConfigureWebHostDefaults(webBuilder =>
-                {
-                    webBuilder.UseStartup<Startup>();
-                });
-    }
+app.UseStaticFiles();
+
+app.UseCors("CorsPolicy");
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.UseSwaggerDocumention();
+
+app.UseEndpoints(endpoints =>
+{
+    endpoints.MapControllers();
+});
+
+
+var scope = app.Services.CreateScope();
+var services = scope.ServiceProvider;
+var loggerFactory = services.GetRequiredService<ILoggerFactory>();
+try
+{
+    var context = services.GetRequiredService<StoreContext>();
+    await context.Database.MigrateAsync();
+    await StoreContextSeed.SeedAsync(context, loggerFactory);
+
+    var userManager = services.GetRequiredService<UserManager<AppUser>>();
+    var identityContext = services.GetRequiredService<AppIdentityDbContext>();
+    await identityContext.Database.MigrateAsync();
+    await AppIdentityDbContextSeed.SeedUserAsync(userManager);
+
+
 }
+catch (Exception ex)
+{
+    var logger = loggerFactory.CreateLogger<Program>();
+    logger.LogError(ex, "An error occured during migration");
+
+}
+
+await app.RunAsync();
+
