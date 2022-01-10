@@ -1,5 +1,6 @@
 using API.Dtos;
 using API.Errors;
+using Core.Entities;
 using Core.Entities.Identity;
 using Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -111,5 +112,6 @@ namespace API.Controllers
                 Email = user.Email
             };
         }
+
     }
 }
